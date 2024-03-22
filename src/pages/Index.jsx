@@ -1,26 +1,51 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Heading, Text, Textarea, Button, Image, Flex } from "@chakra-ui/react";
 import { FaPaperPlane } from "react-icons/fa";
 
 const Index = () => {
   const [inputText, setInputText] = useState("");
-  const [messages, setMessages] = useState([{ text: "Hi, I'm LawGPT - an AI assistant for legal professionals. How can I help you today?", isUser: false }]);
+  const [messages, setMessages] = useState([{ text: "Hi, I'm LawGPT - an AI assistant for legal professionals. To get started, please provide your OpenAI API key.", isUser: false }]);
+  const [apiKey, setApiKey] = useState("");
+  const [apiKeyProvided, setApiKeyProvided] = useState(false);
 
   const handleInputChange = (e) => {
     setInputText(e.target.value);
   };
 
-  const handleSendMessage = () => {
+  const handleApiKeySubmit = () => {
+    if (inputText.trim() !== "") {
+      setApiKey(inputText.trim());
+      setApiKeyProvided(true);
+      setInputText("");
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!apiKeyProvided) {
+      setMessages([...messages, { text: "Please provide your OpenAI API key before asking a question.", isUser: false }]);
+      return;
+    }
+
     if (inputText.trim() !== "") {
       const newMessage = { text: inputText, isUser: true };
       setMessages([...messages, newMessage]);
       setInputText("");
 
-      // TODO: Call API to get AI response, for now just return a dummy lawyer-like response after 1 second
-      setTimeout(() => {
-        const responseMessage = { text: "Based on the legal details you provided, my analysis is that there are several potential avenues to explore to resolve this matter, subject to gathering additional facts and reviewing applicable laws and precedent cases. I'd be happy discuss options and next steps with you.", isUser: false };
-        setMessages([...messages, newMessage, responseMessage]);
-      }, 1000);
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "user", content: newMessage.text }],
+        }),
+      });
+
+      const data = await response.json();
+      const responseMessage = { text: data.choices[0].message.content, isUser: false };
+      setMessages([...messages, newMessage, responseMessage]);
     }
   };
 
@@ -40,9 +65,9 @@ const Index = () => {
       </Box>
 
       <Flex>
-        <Textarea value={inputText} onChange={handleInputChange} placeholder="Enter your legal question or details..." mr={4} />
-        <Button colorScheme="blue" onClick={handleSendMessage} leftIcon={<FaPaperPlane />}>
-          Send
+        <Textarea value={inputText} onChange={handleInputChange} placeholder={apiKeyProvided ? "Enter your legal question or details..." : "Enter your OpenAI API key..."} mr={4} />
+        <Button colorScheme="blue" onClick={apiKeyProvided ? handleSendMessage : handleApiKeySubmit} leftIcon={<FaPaperPlane />}>
+          {apiKeyProvided ? "Send" : "Submit Key"}
         </Button>
       </Flex>
 
